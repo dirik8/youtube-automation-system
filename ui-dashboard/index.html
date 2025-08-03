@@ -5,16 +5,875 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>YouTube Automation Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0/dist/umd/supabase.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
 </head>
 <body class="bg-gray-100 min-h-screen">
+    <!-- Navigation -->
+    <nav class="bg-blue-900 text-white p-4">
+        <div class="container mx-auto flex justify-between items-center">
+            <h1 class="text-2xl font-bold">YouTube Automation Dashboard</h1>
+            <div class="flex space-x-4">
+                <button onclick="showSection('dashboard')" class="nav-btn bg-blue-700 px-4 py-2 rounded hover:bg-blue-600">Dashboard</button>
+                <button onclick="showSection('videos')" class="nav-btn bg-blue-700 px-4 py-2 rounded hover:bg-blue-600">Videos</button>
+                <button onclick="showSection('accounts')" class="nav-btn bg-blue-700 px-4 py-2 rounded hover:bg-blue-600">Accounts</button>
+                <button onclick="showSection('analytics')" class="nav-btn bg-blue-700 px-4 py-2 rounded hover:bg-blue-600">Analytics</button>
+                <button onclick="showSection('settings')" class="nav-btn bg-blue-700 px-4 py-2 rounded hover:bg-blue-600">Settings</button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
     <div class="container mx-auto p-6">
-        <h1 class="text-3xl font-bold text-center mb-8">YouTube Automation System</h1>
-        <div class="bg-white rounded-lg shadow-md p-6">
-            <h2 class="text-xl font-bold mb-4">System Status</h2>
-            <p class="text-green-600">✅ Management UI deployed successfully!</p>
-            <p class="text-blue-600">🔄 N8N automation engine deploying...</p>
-            <p class="text-yellow-600">⚠️ Configure API keys after deployment</p>
+        <!-- Dashboard Section -->
+        <div id="dashboard-section" class="section">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                <!-- Stats Cards -->
+                <div class="bg-white p-6 rounded-lg shadow-md">
+                    <div class="flex items-center">
+                        <div class="p-3 rounded-full bg-blue-500 text-white mr-4">
+                            <i class="fas fa-video"></i>
+                        </div>
+                        <div>
+                            <p class="text-gray-500 text-sm">Videos Scraped</p>
+                            <p id="total-videos" class="text-2xl font-bold">0</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white p-6 rounded-lg shadow-md">
+                    <div class="flex items-center">
+                        <div class="p-3 rounded-full bg-green-500 text-white mr-4">
+                            <i class="fas fa-comment"></i>
+                        </div>
+                        <div>
+                            <p class="text-gray-500 text-sm">Comments Posted</p>
+                            <p id="total-comments" class="text-2xl font-bold">0</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white p-6 rounded-lg shadow-md">
+                    <div class="flex items-center">
+                        <div class="p-3 rounded-full bg-yellow-500 text-white mr-4">
+                            <i class="fas fa-user"></i>
+                        </div>
+                        <div>
+                            <p class="text-gray-500 text-sm">Active Accounts</p>
+                            <p id="active-accounts" class="text-2xl font-bold">0</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white p-6 rounded-lg shadow-md">
+                    <div class="flex items-center">
+                        <div class="p-3 rounded-full bg-purple-500 text-white mr-4">
+                            <i class="fas fa-thumbs-up"></i>
+                        </div>
+                        <div>
+                            <p class="text-gray-500 text-sm">Success Rate</p>
+                            <p id="success-rate" class="text-2xl font-bold">0%</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Activity -->
+            <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+                <h3 class="text-xl font-bold mb-4">Recent Activity</h3>
+                <div id="recent-activity" class="space-y-4">
+                    <!-- Activity items will be loaded here -->
+                </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h3 class="text-xl font-bold mb-4">Quick Actions</h3>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <button onclick="triggerManualPost()" class="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700">
+                        <i class="fas fa-play mr-2"></i>Trigger Manual Post
+                    </button>
+                    <button onclick="scrapeNewVideos()" class="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700">
+                        <i class="fas fa-search mr-2"></i>Scrape New Videos
+                    </button>
+                    <button onclick="healthCheck()" class="bg-orange-600 text-white px-6 py-3 rounded-lg hover:bg-orange-700">
+                        <i class="fas fa-heart mr-2"></i>Health Check
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Videos Section -->
+        <div id="videos-section" class="section hidden">
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-xl font-bold">Scraped Videos</h3>
+                    <div class="flex space-x-4">
+                        <select id="video-filter" class="border border-gray-300 rounded px-3 py-2">
+                            <option value="all">All Videos</option>
+                            <option value="posted">Posted</option>
+                            <option value="pending">Pending</option>
+                            <option value="flagged">Flagged</option>
+                        </select>
+                        <button onclick="refreshVideos()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+                            <i class="fas fa-refresh mr-2"></i>Refresh
+                        </button>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="min-w-full table-auto">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Video</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Channel</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Score</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="videos-table" class="bg-white divide-y divide-gray-200">
+                            <!-- Video rows will be loaded here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Accounts Section -->
+        <div id="accounts-section" class="section hidden">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- Upload Accounts -->
+                <div class="bg-white rounded-lg shadow-md p-6">
+                    <h3 class="text-xl font-bold mb-4">Upload YouTube Accounts</h3>
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Upload CSV File</label>
+                        <input type="file" id="accounts-file" accept=".csv,.txt,.json" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+                        <p class="text-xs text-gray-500 mt-1">CSV format: email,password,cookies_json,proxy_host,proxy_port,recovery_email</p>
+                    </div>
+                    <button onclick="uploadAccounts()" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">
+                        <i class="fas fa-upload mr-2"></i>Upload Accounts
+                    </button>
+                </div>
+
+                <!-- Accounts List -->
+                <div class="bg-white rounded-lg shadow-md p-6">
+                    <h3 class="text-xl font-bold mb-4">Account Performance</h3>
+                    <div id="accounts-list" class="space-y-4 max-h-96 overflow-y-auto">
+                        <!-- Account items will be loaded here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Analytics Section -->
+        <div id="analytics-section" class="section hidden">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                <!-- Performance Chart -->
+                <div class="bg-white rounded-lg shadow-md p-6">
+                    <h3 class="text-xl font-bold mb-4">Daily Performance</h3>
+                    <canvas id="performance-chart"></canvas>
+                </div>
+
+                <!-- Engagement Chart -->
+                <div class="bg-white rounded-lg shadow-md p-6">
+                    <h3 class="text-xl font-bold mb-4">Engagement Metrics</h3>
+                    <canvas id="engagement-chart"></canvas>
+                </div>
+            </div>
+
+            <!-- Flagged Words -->
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h3 class="text-xl font-bold mb-4">Flagged Words Analysis</h3>
+                <div id="flagged-words" class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <!-- Flagged words will be loaded here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Settings Section -->
+        <div id="settings-section" class="section hidden">
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h3 class="text-xl font-bold mb-6">System Settings</h3>
+                <form id="settings-form" class="space-y-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <!-- Trader Settings -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Trader Username</label>
+                            <input type="text" id="trader_username" class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="BullishWhalesClub">
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Telegram Handle</label>
+                            <input type="text" id="telegram_handle" class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="@BullishwhalesChief">
+                        </div>
+
+                        <!-- API Keys -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">YouTube API Key</label>
+                            <input type="password" id="youtube_api_key" class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">OpenAI API Key</label>
+                            <input type="password" id="openai_api_key" class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">QQTube API Key</label>
+                            <input type="password" id="qqtube_api_key" class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">QQTube Service ID</label>
+                            <input type="text" id="qqtube_service_id" class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="1234">
+                        </div>
+
+                        <!-- Automation Settings -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">AI Provider</label>
+                            <select id="ai_provider" class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <option value="openai">OpenAI</option>
+                                <option value="deepseek">DeepSeek</option>
+                                <option value="gemini">Google Gemini</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Likes Per Boost (Range)</label>
+                            <div class="flex space-x-2">
+                                <input type="number" id="min_likes_per_boost" placeholder="120" class="w-1/2 border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <input type="number" id="max_likes_per_boost" placeholder="200" class="w-1/2 border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Comment Delay (seconds)</label>
+                            <div class="flex space-x-2">
+                                <input type="number" id="comment_delay_min" placeholder="300" class="w-1/2 border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <input type="number" id="comment_delay_max" placeholder="600" class="w-1/2 border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Max Daily Posts</label>
+                            <input type="number" id="max_daily_posts" class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="50">
+                        </div>
+                    </div>
+
+                    <div class="flex justify-end space-x-4">
+                        <button type="button" onclick="testConnections()" class="bg-yellow-600 text-white px-6 py-2 rounded hover:bg-yellow-700">
+                            <i class="fas fa-test-tube mr-2"></i>Test Connections
+                        </button>
+                        <button type="submit" class="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700">
+                            <i class="fas fa-save mr-2"></i>Save Settings
+                        </button>
+                    </div>
+                </form>
+            </div>
         </div>
     </div>
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
+        <div class="bg-white p-6 rounded-lg">
+            <div class="flex items-center">
+                <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mr-4"></div>
+                <span>Processing...</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Configuration
+        const SUPABASE_URL = 'https://ghazfuoexjjeadtymgpk.supabase.co'; // Replace with your Supabase URL
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdoYXpmdW9leGpqZWFkdHltZ3BrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MjI2ODQwMjIsImV4cCI6MjAzODI2MDAyMn0.2v9bouAQGNgqrJm5gjWAfO9FGJ9rDftcDDJssaI5OUk'; // Replace with your Supabase anon key
+        const N8N_WEBHOOK_URL = 'https://youtube-automation-system.onrender.com'; // Replace with your n8n webhook URL
+
+        // Initialize Supabase client
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // Global variables
+        let performanceChart = null;
+        let engagementChart = null;
+
+        // Utility functions
+        function showLoading() {
+            document.getElementById('loading-overlay').classList.remove('hidden');
+        }
+
+        function hideLoading() {
+            document.getElementById('loading-overlay').classList.add('hidden');
+        }
+
+        function showSection(sectionName) {
+            // Hide all sections
+            document.querySelectorAll('.section').forEach(section => {
+                section.classList.add('hidden');
+            });
+            
+            // Show selected section
+            document.getElementById(sectionName + '-section').classList.remove('hidden');
+            
+            // Update nav buttons
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                btn.classList.remove('bg-blue-500');
+                btn.classList.add('bg-blue-700');
+            });
+            event.target.classList.remove('bg-blue-700');
+            event.target.classList.add('bg-blue-500');
+
+            // Load section-specific data
+            switch(sectionName) {
+                case 'dashboard':
+                    loadDashboard();
+                    break;
+                case 'videos':
+                    loadVideos();
+                    break;
+                case 'accounts':
+                    loadAccounts();
+                    break;
+                case 'analytics':
+                    loadAnalytics();
+                    break;
+                case 'settings':
+                    loadSettings();
+                    break;
+            }
+        }
+
+        // Dashboard functions
+        async function loadDashboard() {
+            try {
+                // Load stats
+                const { data: videos } = await supabase.from('videos').select('*');
+                const { data: comments } = await supabase.from('thread_logs').select('*');
+                const { data: accounts } = await supabase.from('youtube_accounts').select('*').eq('active', true);
+                
+                const successfulComments = comments.filter(c => c.status === 'success').length;
+                const successRate = comments.length > 0 ? (successfulComments / comments.length * 100).toFixed(1) : 0;
+
+                document.getElementById('total-videos').textContent = videos.length;
+                document.getElementById('total-comments').textContent = comments.length;
+                document.getElementById('active-accounts').textContent = accounts.length;
+                document.getElementById('success-rate').textContent = successRate + '%';
+
+                // Load recent activity
+                loadRecentActivity();
+            } catch (error) {
+                console.error('Error loading dashboard:', error);
+            }
+        }
+
+        async function loadRecentActivity() {
+            try {
+                const { data: activities } = await supabase
+                    .from('thread_logs')
+                    .select('*')
+                    .order('timestamp', { ascending: false })
+                    .limit(10);
+
+                const activityHtml = activities.map(activity => `
+                    <div class="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                        <div class="flex items-center">
+                            <div class="p-2 rounded-full ${activity.status === 'success' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'} mr-3">
+                                <i class="fas ${activity.status === 'success' ? 'fa-check' : 'fa-times'}"></i>
+                            </div>
+                            <div>
+                                <p class="font-medium">${activity.account_email}</p>
+                                <p class="text-sm text-gray-500">Video: ${activity.video_id}</p>
+                                <p class="text-xs text-gray-400">${new Date(activity.timestamp).toLocaleString()}</p>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <span class="px-2 py-1 rounded text-xs ${activity.status === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">${activity.status}</span>
+                            ${activity.likes_purchased ? `<p class="text-xs text-gray-500 mt-1">${activity.likes_purchased} likes</p>` : ''}
+                        </div>
+                    </div>
+                `).join('');
+
+                document.getElementById('recent-activity').innerHTML = activityHtml;
+            } catch (error) {
+                console.error('Error loading recent activity:', error);
+            }
+        }
+
+        // Videos functions
+        async function loadVideos() {
+            try {
+                const filter = document.getElementById('video-filter')?.value || 'all';
+                let query = supabase.from('videos').select('*');
+
+                switch(filter) {
+                    case 'posted':
+                        query = query.eq('posted', true);
+                        break;
+                    case 'pending':
+                        query = query.eq('posted', false).eq('flagged', false);
+                        break;
+                    case 'flagged':
+                        query = query.eq('flagged', true);
+                        break;
+                }
+
+                const { data: videos } = await query.order('created_at', { ascending: false }).limit(50);
+
+                const videosHtml = videos.map(video => `
+                    <tr>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="flex items-center">
+                                <img class="h-10 w-10 rounded-full object-cover mr-3" src="${video.thumbnail_url || '/api/placeholder/40/40'}" alt="Video thumbnail">
+                                <div>
+                                    <div class="text-sm font-medium text-gray-900">${video.title.substring(0, 60)}...</div>
+                                    <div class="text-sm text-gray-500">${video.video_id}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${video.channel_title}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${video.score >= 50 ? 'bg-green-100 text-green-800' : video.score >= 25 ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'}">${video.score}</span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${video.posted ? 'bg-green-100 text-green-800' : video.flagged ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'}">
+                                ${video.posted ? 'Posted' : video.flagged ? 'Flagged' : 'Pending'}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            <button onclick="triggerVideoPost('${video.video_id}')" class="text-blue-600 hover:text-blue-900 mr-3">Post</button>
+                            <button onclick="flagVideo('${video.video_id}')" class="text-red-600 hover:text-red-900">Flag</button>
+                        </td>
+                    </tr>
+                `).join('');
+
+                document.getElementById('videos-table').innerHTML = videosHtml;
+            } catch (error) {
+                console.error('Error loading videos:', error);
+            }
+        }
+
+        function refreshVideos() {
+            loadVideos();
+        }
+
+        async function triggerVideoPost(videoId) {
+            try {
+                showLoading();
+                const response = await fetch(`${N8N_WEBHOOK_URL}/trigger-post`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ video_id: videoId })
+                });
+                const result = await response.json();
+                alert(result.status === 'success' ? 'Post triggered successfully!' : 'Failed to trigger post: ' + result.message);
+                loadVideos();
+            } catch (error) {
+                alert('Error triggering post: ' + error.message);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        async function flagVideo(videoId) {
+            try {
+                await supabase.from('videos').update({ flagged: true }).eq('video_id', videoId);
+                loadVideos();
+            } catch (error) {
+                alert('Error flagging video: ' + error.message);
+            }
+        }
+
+        // Accounts functions
+        async function loadAccounts() {
+            try {
+                const { data: accounts } = await supabase
+                    .from('account_performance')
+                    .select('*')
+                    .limit(20);
+
+                const accountsHtml = accounts.map(account => `
+                    <div class="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                        <div>
+                            <p class="font-medium">${account.email}</p>
+                            <p class="text-sm text-gray-500">Posts: ${account.total_posts} | Failures: ${account.total_failures}</p>
+                            <p class="text-xs text-gray-400">Last used: ${account.last_used ? new Date(account.last_used).toLocaleString() : 'Never'}</p>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-lg font-bold ${account.success_rate >= 0.8 ? 'text-green-600' : account.success_rate >= 0.5 ? 'text-yellow-600' : 'text-red-600'}">${(account.success_rate * 100).toFixed(1)}%</div>
+                            <button onclick="toggleAccount('${account.email}')" class="text-blue-600 hover:text-blue-900 text-sm">Toggle</button>
+                        </div>
+                    </div>
+                `).join('');
+
+                document.getElementById('accounts-list').innerHTML = accountsHtml;
+            } catch (error) {
+                console.error('Error loading accounts:', error);
+            }
+        }
+
+        async function uploadAccounts() {
+            const fileInput = document.getElementById('accounts-file');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                alert('Please select a file');
+                return;
+            }
+
+            try {
+                showLoading();
+                const text = await file.text();
+                const lines = text.split('\n').filter(line => line.trim());
+                const accounts = [];
+
+                for (const line of lines) {
+                    const [email, password, cookies_json, proxy_host, proxy_port, recovery_email] = line.split(',');
+                    if (email && email.includes('@')) {
+                        accounts.push({
+                            email: email.trim(),
+                            password: password?.trim(),
+                            cookies_json: cookies_json?.trim(),
+                            proxy_host: proxy_host?.trim(),
+                            proxy_port: proxy_port ? parseInt(proxy_port.trim()) : null,
+                            recovery_email: recovery_email?.trim(),
+                            active: true,
+                            success_rate: 0.0,
+                            total_posts: 0,
+                            total_failures: 0
+                        });
+                    }
+                }
+
+                if (accounts.length === 0) {
+                    alert('No valid accounts found in file');
+                    return;
+                }
+
+                const { error } = await supabase.from('youtube_accounts').upsert(accounts);
+                if (error) throw error;
+
+                alert(`Successfully uploaded ${accounts.length} accounts`);
+                loadAccounts();
+            } catch (error) {
+                alert('Error uploading accounts: ' + error.message);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        async function toggleAccount(email) {
+            try {
+                const { data: account } = await supabase
+                    .from('youtube_accounts')
+                    .select('active')
+                    .eq('email', email)
+                    .single();
+
+                await supabase
+                    .from('youtube_accounts')
+                    .update({ active: !account.active })
+                    .eq('email', email);
+
+                loadAccounts();
+            } catch (error) {
+                alert('Error toggling account: ' + error.message);
+            }
+        }
+
+        // Analytics functions
+        async function loadAnalytics() {
+            try {
+                // Load performance chart
+                const { data: dailyData } = await supabase
+                    .from('daily_performance')
+                    .select('*')
+                    .limit(30);
+
+                if (performanceChart) {
+                    performanceChart.destroy();
+                }
+
+                const ctx1 = document.getElementById('performance-chart').getContext('2d');
+                performanceChart = new Chart(ctx1, {
+                    type: 'line',
+                    data: {
+                        labels: dailyData.map(d => d.date),
+                        datasets: [{
+                            label: 'Successful Posts',
+                            data: dailyData.map(d => d.successful_posts),
+                            borderColor: 'rgb(34, 197, 94)',
+                            backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                            tension: 0.1
+                        }, {
+                            label: 'Failed Posts',
+                            data: dailyData.map(d => d.failed_posts),
+                            borderColor: 'rgb(239, 68, 68)',
+                            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                            tension: 0.1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        scales: {
+                            y: {
+                                beginAtZero: true
+                            }
+                        }
+                    }
+                });
+
+                // Load engagement chart
+                const { data: engagementData } = await supabase
+                    .from('thread_logs')
+                    .select('likes_purchased, engagement_score')
+                    .eq('status', 'success')
+                    .not('likes_purchased', 'is', null)
+                    .limit(100);
+
+                if (engagementChart) {
+                    engagementChart.destroy();
+                }
+
+                const ctx2 = document.getElementById('engagement-chart').getContext('2d');
+                engagementChart = new Chart(ctx2, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['High Engagement', 'Medium Engagement', 'Low Engagement'],
+                        datasets: [{
+                            data: [
+                                engagementData.filter(e => e.engagement_score >= 70).length,
+                                engagementData.filter(e => e.engagement_score >= 40 && e.engagement_score < 70).length,
+                                engagementData.filter(e => e.engagement_score < 40).length
+                            ],
+                            backgroundColor: [
+                                'rgb(34, 197, 94)',
+                                'rgb(251, 191, 36)',
+                                'rgb(239, 68, 68)'
+                            ]
+                        }]
+                    },
+                    options: {
+                        responsive: true
+                    }
+                });
+
+                // Load flagged words
+                loadFlaggedWords();
+            } catch (error) {
+                console.error('Error loading analytics:', error);
+            }
+        }
+
+        async function loadFlaggedWords() {
+            try {
+                const { data: flaggedWords } = await supabase
+                    .from('flagged_words')
+                    .select('*')
+                    .order('flag_count', { ascending: false })
+                    .limit(20);
+
+                const flaggedHtml = flaggedWords.map(word => `
+                    <div class="p-3 bg-red-50 border border-red-200 rounded-lg">
+                        <div class="font-medium text-red-800">${word.word}</div>
+                        <div class="text-sm text-red-600">${word.flag_count} flags</div>
+                        <div class="text-xs text-red-500">${word.severity} severity</div>
+                    </div>
+                `).join('');
+
+                document.getElementById('flagged-words').innerHTML = flaggedHtml;
+            } catch (error) {
+                console.error('Error loading flagged words:', error);
+            }
+        }
+
+        // Settings functions
+        async function loadSettings() {
+            try {
+                const { data: settings } = await supabase.from('settings').select('*');
+                
+                settings.forEach(setting => {
+                    const element = document.getElementById(setting.key);
+                    if (element) {
+                        element.value = setting.value;
+                    }
+                });
+            } catch (error) {
+                console.error('Error loading settings:', error);
+            }
+        }
+
+        async function saveSettings() {
+            try {
+                showLoading();
+                
+                const settingsForm = document.getElementById('settings-form');
+                const formData = new FormData(settingsForm);
+                const updates = [];
+
+                // Get all form inputs
+                const inputs = settingsForm.querySelectorAll('input, select');
+                for (const input of inputs) {
+                    if (input.id && input.value) {
+                        updates.push({
+                            key: input.id,
+                            value: input.value
+                        });
+                    }
+                }
+
+                // Update settings in database
+                for (const update of updates) {
+                    await supabase
+                        .from('settings')
+                        .upsert(update);
+                }
+
+                alert('Settings saved successfully!');
+            } catch (error) {
+                alert('Error saving settings: ' + error.message);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        async function testConnections() {
+            try {
+                showLoading();
+                const results = [];
+
+                // Test YouTube API
+                const youtubeKey = document.getElementById('youtube_api_key').value;
+                if (youtubeKey) {
+                    try {
+                        const response = await fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&q=test&key=${youtubeKey}&maxResults=1`);
+                        results.push(`YouTube API: ${response.ok ? '✅ Working' : '❌ Failed'}`);
+                    } catch (e) {
+                        results.push('YouTube API: ❌ Failed');
+                    }
+                }
+
+                // Test OpenAI API
+                const openaiKey = document.getElementById('openai_api_key').value;
+                if (openaiKey) {
+                    try {
+                        const response = await fetch('https://api.openai.com/v1/models', {
+                            headers: { 'Authorization': `Bearer ${openaiKey}` }
+                        });
+                        results.push(`OpenAI API: ${response.ok ? '✅ Working' : '❌ Failed'}`);
+                    } catch (e) {
+                        results.push('OpenAI API: ❌ Failed');
+                    }
+                }
+
+                // Test QQTube API
+                const qqtubeKey = document.getElementById('qqtube_api_key').value;
+                if (qqtubeKey) {
+                    try {
+                        const response = await fetch('https://qqtube.com/api/balance', {
+                            headers: { 'Authorization': `Bearer ${qqtubeKey}` }
+                        });
+                        results.push(`QQTube API: ${response.ok ? '✅ Working' : '❌ Failed'}`);
+                    } catch (e) {
+                        results.push('QQTube API: ❌ Failed');
+                    }
+                }
+
+                alert('Connection Test Results:\n\n' + results.join('\n'));
+            } catch (error) {
+                alert('Error testing connections: ' + error.message);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        // Action functions
+        async function triggerManualPost() {
+            try {
+                showLoading();
+                const response = await fetch(`${N8N_WEBHOOK_URL}/trigger-manual`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'manual_trigger' })
+                });
+                const result = await response.json();
+                alert(result.status === 'success' ? 'Manual post triggered successfully!' : 'Failed to trigger post');
+            } catch (error) {
+                alert('Error triggering manual post: ' + error.message);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        async function scrapeNewVideos() {
+            try {
+                showLoading();
+                const response = await fetch(`${N8N_WEBHOOK_URL}/scrape-videos`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'scrape_videos' })
+                });
+                const result = await response.json();
+                alert('Video scraping initiated!');
+                setTimeout(loadVideos, 3000); // Refresh videos after 3 seconds
+            } catch (error) {
+                alert('Error scraping videos: ' + error.message);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        async function healthCheck() {
+            try {
+                showLoading();
+                const response = await fetch(`${N8N_WEBHOOK_URL}/health-check`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'health_check' })
+                });
+                const result = await response.json();
+                alert('Health check initiated!');
+            } catch (error) {
+                alert('Error running health check: ' + error.message);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        // Event listeners
+        document.getElementById('settings-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            saveSettings();
+        });
+
+        document.getElementById('video-filter').addEventListener('change', loadVideos);
+
+        // Initialize dashboard on load
+        document.addEventListener('DOMContentLoaded', function() {
+            loadDashboard();
+        });
+
+        // Real-time updates using Supabase subscriptions
+        supabase
+            .channel('thread_logs')
+            .on('postgres_changes', 
+                { event: '*', schema: 'public', table: 'thread_logs' }, 
+                () => {
+                    loadDashboard();
+                    loadRecentActivity();
+                }
+            )
+            .subscribe();
+
+        supabase
+            .channel('videos')
+            .on('postgres_changes', 
+                { event: '*', schema: 'public', table: 'videos' }, 
+                () => {
+                    loadVideos();
+                }
+            )
+            .subscribe();
+    </script>
 </body>
 </html>

@@ -1,5 +1,396 @@
 ﻿{
-  "name": "Placeholder - Replace with actual workflow JSON",
+  "name": "{
+  "name": "YouTube Video Scraper",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 */4 * * *"
+            }
+          ]
+        }
+      },
+      "id": "filter-score-videos",
+      "name": "Filter & Score Videos",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1120,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "id": "split-videos-to-save",
+      "name": "Split Videos to Save",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        1340,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "table": "videos",
+        "where": {
+          "conditions": [
+            {
+              "column": "video_id",
+              "operator": "equal",
+              "value": "={{ $json.video_id }}"
+            }
+          ]
+        }
+      },
+      "id": "check-video-exists",
+      "name": "Check Video Exists",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1560,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "video-not-exists",
+              "leftValue": "={{ $json.length }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "equal"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-video-new",
+      "name": "If Video New",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1780,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "table": "videos",
+        "records": [
+          {
+            "video_id": "={{ $node[\"Split Videos to Save\"].json.video_id }}",
+            "title": "={{ $node[\"Split Videos to Save\"].json.title }}",
+            "description": "={{ $node[\"Split Videos to Save\"].json.description }}",
+            "channel_title": "={{ $node[\"Split Videos to Save\"].json.channel_title }}",
+            "published_at": "={{ $node[\"Split Videos to Save\"].json.published_at }}",
+            "keyword": "={{ $node[\"Split Videos to Save\"].json.keyword }}",
+            "score": "={{ $node[\"Split Videos to Save\"].json.score }}",
+            "posted": false,
+            "flagged": false,
+            "thumbnail_url": "={{ $node[\"Split Videos to Save\"].json.thumbnail_url }}"
+          }
+        ]
+      },
+      "id": "save-new-video",
+      "name": "Save New Video",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        2000,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "amount": 2,
+        "unit": "seconds"
+      },
+      "id": "wait-api-limit",
+      "name": "Wait API Limit",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [
+        2220,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Scraper Schedule": {
+      "main": [
+        [
+          {
+            "node": "Generate Keywords",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get YouTube API Key",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Keywords": {
+      "main": [
+        [
+          {
+            "node": "Split Keywords",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Keywords": {
+      "main": [
+        [
+          {
+            "node": "YouTube Search",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Scraper Schedule",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "YouTube Search": {
+      "main": [
+        [
+          {
+            "node": "Filter & Score Videos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter & Score Videos": {
+      "main": [
+        [
+          {
+            "node": "Split Videos to Save",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Videos to Save": {
+      "main": [
+        [
+          {
+            "node": "Check Video Exists",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait API Limit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Video Exists": {
+      "main": [
+        [
+          {
+            "node": "If Video New",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Video New": {
+      "main": [
+        [
+          {
+            "node": "Save New Video",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait API Limit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save New Video": {
+      "main": [
+        [
+          {
+            "node": "Wait API Limit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait API Limit": {
+      "main": [
+        [
+          {
+            "node": "Split Videos to Save",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "updatedAt": "2025-01-01T00:00:00.000Z",
+  "versionId": "1"
+}
+      "id": "scraper-cron",
+      "name": "Scraper Schedule",
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 1,
+      "position": [
+        240,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Dynamic keyword selection based on time and trends\nconst currentHour = new Date().getHours();\nconst currentDay = new Date().getDay();\n\n// Time-based keyword strategy\nconst timeBasedKeywords = {\n  morning: ['stock market today', 'premarket analysis', 'crypto news today'],\n  afternoon: ['trading strategies', 'investment tips', 'portfolio management'],\n  evening: ['market recap', 'economic news', 'financial planning'],\n  weekend: ['passive income', 'real estate investing', 'crypto analysis']\n};\n\n// Finance/Crypto keyword pool\nconst keywordPool = [\n  'stock market crash',\n  'crypto bull run',\n  'real estate investing',\n  'trading psychology',\n  'portfolio diversification',\n  'passive income streams',\n  'financial freedom',\n  'market analysis 2025',\n  'bitcoin price prediction',\n  'ethereum investment',\n  'dividend stocks',\n  'value investing',\n  'day trading tips',\n  'forex trading',\n  'retirement planning',\n  'investment mistakes',\n  'wealth building',\n  'financial education',\n  'market volatility',\n  'economic indicators'\n];\n\n// Select keywords based on time\nlet selectedKeywords;\nif (currentDay === 0 || currentDay === 6) {\n  selectedKeywords = timeBasedKeywords.weekend;\n} else if (currentHour < 12) {\n  selectedKeywords = timeBasedKeywords.morning;\n} else if (currentHour < 18) {\n  selectedKeywords = timeBasedKeywords.afternoon;\n} else {\n  selectedKeywords = timeBasedKeywords.evening;\n}\n\n// Add random keywords for diversity\nconst randomKeywords = keywordPool\n  .sort(() => 0.5 - Math.random())\n  .slice(0, 3);\n\nconst allKeywords = [...selectedKeywords, ...randomKeywords];\n\nreturn allKeywords.map(keyword => ({ keyword }));"
+      },
+      "id": "generate-keywords",
+      "name": "Generate Keywords",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "id": "split-keywords",
+      "name": "Split Keywords",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        680,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "table": "settings",
+        "where": {
+          "conditions": [
+            {
+              "column": "key",
+              "operator": "equal",
+              "value": "youtube_api_key"
+            }
+          ]
+        }
+      },
+      "id": "get-youtube-api-key",
+      "name": "Get YouTube API Key",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        460,
+        140
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://www.googleapis.com/youtube/v3/search",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "part",
+              "value": "snippet"
+            },
+            {
+              "name": "q",
+              "value": "={{ $json.keyword }}"
+            },
+            {
+              "name": "type",
+              "value": "video"
+            },
+            {
+              "name": "order",
+              "value": "relevance"
+            },
+            {
+              "name": "publishedAfter",
+              "value": "={{ new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString() }}"
+            },
+            {
+              "name": "maxResults",
+              "value": "10"
+            },
+            {
+              "name": "key",
+              "value": "={{ $node[\"Get YouTube API Key\"].json.value }}"
+            }
+          ]
+        }
+      },
+      "id": "youtube-search",
+      "name": "YouTube Search",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        900,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Enhanced video filtering and scoring\nconst videos = $json.items || [];\nconst keyword = $node[\"Split Keywords\"].json.keyword;\n\nconst scoredVideos = videos.map(video => {\n  const snippet = video.snippet;\n  const title = snippet.title.toLowerCase();\n  const description = snippet.description.toLowerCase();\n  const channelTitle = snippet.channelTitle.toLowerCase();\n  \n  let score = 0;\n  \n  // Title relevance scoring\n  const titleKeywords = ['trading', 'investing', 'crypto', 'bitcoin', 'stock', 'finance', 'money', 'wealth', 'portfolio', 'market'];\n  titleKeywords.forEach(kw => {\n    if (title.includes(kw)) score += 10;\n  });\n  \n  // Description relevance\n  const descKeywords = ['financial', 'investment', 'trading', 'profit', 'returns', 'strategy'];\n  descKeywords.forEach(kw => {\n    if (description.includes(kw)) score += 5;\n  });\n  \n  // Channel quality indicators\n  const qualityChannels = ['finance', 'investing', 'trading', 'crypto', 'wealth', 'money'];\n  qualityChannels.forEach(kw => {\n    if (channelTitle.includes(kw)) score += 15;\n  });\n  \n  // Penalty for spam indicators\n  const spamWords = ['scam', 'fake', 'clickbait', 'urgent', 'limited time'];\n  spamWords.forEach(spam => {\n    if (title.includes(spam) || description.includes(spam)) score -= 20;\n  });\n  \n  // Video age preference (newer is better)\n  const publishedDate = new Date(snippet.publishedAt);\n  const ageHours = (Date.now() - publishedDate.getTime()) / (1000 * 60 * 60);\n  if (ageHours < 24) score += 20;\n  else if (ageHours < 72) score += 10;\n  \n  return {\n    video_id: video.id.videoId,\n    title: snippet.title,\n    description: snippet.description,\n    channel_title: snippet.channelTitle,\n    published_at: snippet.publishedAt,\n    keyword: keyword,\n    score: score,\n    posted: false,\n    flagged: false,\n    thumbnail_url: snippet.thumbnails.medium?.url\n  };\n});\n\n// Filter and sort by score\nconst filteredVideos = scoredVideos\n  .filter(video => video.score > 10) // Minimum quality threshold\n  .sort((a, b) => b.score - a.score) // Best scores first\n  .slice(0, 5); // Top 5 videos\n\nreturn filteredVideos;",
   "nodes": [],
   "connections": {},
   "settings": {},

@@ -1,9 +1,639 @@
 ﻿{
-  "name": "Placeholder - Replace with actual workflow JSON",
-  "nodes": [],
-  "connections": {},
-  "settings": {},
+  "name": "Enhanced AI-Powered YouTube Automation",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "trigger-post",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Manual Trigger Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "manual-post-trigger"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract video ID from webhook payload\nconst body = $json.body || {};\nconst videoId = body.video_id || $json.video_id;\n\nif (!videoId) {\n  throw new Error('No video_id provided in request');\n}\n\nreturn { video_id: videoId };"
+      },
+      "id": "extract-video-id",
+      "name": "Extract Video ID",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "table": "videos",
+        "where": {
+          "conditions": [
+            {
+              "column": "video_id",
+              "operator": "equal",
+              "value": "={{ $json.video_id }}"
+            }
+          ]
+        }
+      },
+      "id": "get-video-info",
+      "name": "Get Video Info",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://www.googleapis.com/youtube/v3/videos",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "part",
+              "value": "snippet,statistics"
+            },
+            {
+              "name": "id",
+              "value": "={{ $json[0].video_id }}"
+            },
+            {
+              "name": "key",
+              "value": "={{ $node[\"Get Settings\"].json.youtube_api_key }}"
+            }
+          ]
+        }
+      },
+      "id": "get-youtube-details",
+      "name": "Get YouTube Details",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "table": "settings",
+        "returnAll": true
+      },
+      "id": "get-settings",
+      "name": "Get Settings",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [680, 140]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Enhanced AI prompt with video context analysis\nconst videoData = $node[\"Get Video Info\"].json[0];\nconst youtubeDetails = $json.items[0];\nconst settings = $node[\"Get Settings\"].json;\n\n// Extract settings\nconst traderUsername = settings.find(s => s.key === 'trader_username')?.value || 'BullishWhalesClub';\nconst telegramHandle = settings.find(s => s.key === 'telegram_handle')?.value || '@BullishwhalesChief';\nconst aiProvider = settings.find(s => s.key === 'ai_provider')?.value || 'openai';\n\n// Analyze video content\nconst title = youtubeDetails.snippet.title;\nconst description = youtubeDetails.snippet.description;\nconst viewCount = parseInt(youtubeDetails.statistics.viewCount || '0');\nconst likeCount = parseInt(youtubeDetails.statistics.likeCount || '0');\nconst commentCount = parseInt(youtubeDetails.statistics.commentCount || '0');\n\n// Determine video category and audience tone\nconst isHighEngagement = viewCount > 10000 && likeCount > 100;\nconst isCryptoRelated = title.toLowerCase().includes('crypto') || title.toLowerCase().includes('bitcoin');\nconst isStockRelated = title.toLowerCase().includes('stock') || title.toLowerCase().includes('trading');\nconst isEducational = title.toLowerCase().includes('how to') || title.toLowerCase().includes('tutorial');\n\n// Generate contextual AI prompt\nconst enhancedPrompt = `\nANALYZE THIS YOUTUBE VIDEO AND CREATE A STRATEGIC COMMENT THREAD:\n\nVIDEO ANALYSIS:\n- Title: \"${title}\"\n- Description: \"${description.substring(0, 200)}...\"\n- Engagement: ${viewCount.toLocaleString()} views, ${likeCount.toLocaleString()} likes, ${commentCount.toLocaleString()} comments\n- High Engagement Video: ${isHighEngagement}\n- Category: ${isCryptoRelated ? 'Crypto' : isStockRelated ? 'Stocks/Trading' : 'General Finance'}\n- Educational Content: ${isEducational}\n\nCREATE A PSYCHOLOGICAL PERSUASION THREAD:\n\nGenerate a complete conversation thread (11 comments) that follows this exact psychological sequence:\n\n1. FRUSTRATED INVESTOR (User A):\n- Express genuine frustration related to the video's topic\n- Use specific language that mirrors the video's theme\n- Sound desperate but intelligent\n- Mention concrete struggles (loss amounts, time wasted, etc.)\n- ${isEducational ? 'Express that tutorials haven\\'t worked' : 'Show you\\'ve tried conventional approaches'}\n- ${isCryptoRelated ? 'Mention crypto losses or missed opportunities' : 'Talk about traditional investment failures'}\n\n2. MYSTERIOUS HELPER (Johnny):\n- Calm, experienced tone\n- Mention discovering \"${traderUsername}\" recently\n- Talk about \"different approach\" and \"live guidance\"\n- NO crypto mention yet\n- Build intrigue without seeming promotional\n- Use phrases like \"there's something different\" or \"not the usual approach\"\n\n3. MEME RELIEF (User B):\n- Humorous comment that fits the video's audience\n- ${isHighEngagement ? 'Use popular trading memes or references' : 'Keep it simple and relatable'}\n- Normalize the frustration from comment 1\n- Feel authentic to YouTube comment culture\n\n4. CRYPTO CURIOSITY (User C):\n- Skeptical but interested tone\n- Ask: \"Is this crypto related?\"\n- First mention of \"${traderUsername}\" by name\n- Sound like they've heard whispers about it\n- ${isCryptoRelated ? 'Show familiarity with crypto space' : 'Express caution about crypto'}\n\n5. TELEGRAM DROP (Johnny):\n- Clean, matter-of-fact delivery\n- Confirm crypto connection\n- Drop: \"${telegramHandle}\"\n- No pressure, just information\n- Casual tone like he doesn't care if people join\n\n6. SCARCITY LAYER (User D):\n- Mock how \"working strategies\" are never shared\n- Create FOMO: \"Once something works, everybody shuts up\"\n- Reference other failed investments\n- Build exclusivity perception\n\n7. COMIC RELIEF 2 (User E):\n- Trading joke relevant to current market\n- ${isStockRelated ? 'Reference popular stocks or market events' : 'General trading humor'}\n- Keep thread feeling natural\n- Example: \"Bro just inverse Cramer 😂\"\n\n8. CURIOSITY CLIMBS (User A returns):\n- Confused but hopeful\n- Ask about the trading model\n- \"wait so it's not a course?\"\n- Echo what readers are thinking\n\n9. REVEAL MODEL (Johnny):\n- Explain real-time trading concept\n- \"He takes the trades, you follow along live\"\n- Emphasize it's not theory or recordings\n- Make it sound exclusive and authentic\n\n10. SKEPTIC CHECK (User F):\n- Ask about the catch\n- \"No way someone gives edge for free\"\n- Give Johnny chance for final credibility\n\n11. LOOP CLOSED (Johnny):\n- Explain revenue sharing model\n- \"No upfront payment, he makes money when you do\"\n- Emphasize aligned incentives\n- \"Skin in the game\"\n\n12. WISDOM CLOSE (User B):\n- Drop final advice\n- \"Patience + conviction + proper risk management = real gains\"\n- End thread with authority\n\nCONTEXT ADAPTATION RULES:\n- Match the video's tone and audience sophistication\n- Use vocabulary level appropriate to the content\n- ${isEducational ? 'Reference that basic education isn\\'t enough' : 'Focus on execution over theory'}\n- ${isCryptoRelated ? 'Show crypto knowledge but frustration with volatility' : 'Bridge traditional investing to crypto opportunity'}\n- ${isHighEngagement ? 'Use more confident, experienced language' : 'Keep humble and relatable'}\n\nGENERATE ONLY COMMENT #1 (Frustrated Investor):\nWrite a single, authentic YouTube comment that starts this psychological sequence. Make it feel genuine, specific to this video, and emotionally compelling.\n\nComment length: 50-150 words\nTone: Frustrated but articulate\nContext: Directly related to \"${title}\"\n`;\n\nreturn {\n  prompt: enhancedPrompt,\n  videoId: videoData.video_id,\n  title: title,\n  aiProvider: aiProvider,\n  settings: {\n    traderUsername,\n    telegramHandle,\n    isHighEngagement,\n    isCryptoRelated,\n    isStockRelated,\n    isEducational\n  }\n};"
+      },
+      "id": "enhanced-ai-prompt",
+      "name": "Enhanced AI Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1120, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "openai-check",
+              "leftValue": "={{ $json.aiProvider }}",
+              "rightValue": "openai",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "ai-provider-switch",
+      "name": "AI Provider Switch",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1340, 300]
+    },
+    {
+      "parameters": {
+        "resource": "chat",
+        "operation": "create",
+        "model": "gpt-4o-mini",
+        "messages": {
+          "values": [
+            {
+              "role": "system",
+              "content": "You are an expert at creating authentic YouTube comments that blend naturally into finance and trading discussions. Your comments should feel genuine, show real frustration, and use natural language with minor imperfections."
+            },
+            {
+              "role": "user",
+              "content": "={{ $json.prompt }}"
+            }
+          ]
+        },
+        "options": {
+          "temperature": 0.9,
+          "maxTokens": 200,
+          "presencePenalty": 0.3,
+          "frequencyPenalty": 0.3
+        }
+      },
+      "id": "openai-enhanced",
+      "name": "OpenAI Enhanced",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1,
+      "position": [1560, 200]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.deepseek.com/v1/chat/completions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "deepseekApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "model",
+              "value": "deepseek-chat"
+            },
+            {
+              "name": "messages",
+              "value": "=[{\"role\": \"system\", \"content\": \"You are an expert at creating authentic YouTube comments for finance discussions.\"}, {\"role\": \"user\", \"content\": \"{{ $json.prompt }}\"}]"
+            },
+            {
+              "name": "temperature",
+              "value": 0.9
+            },
+            {
+              "name": "max_tokens",
+              "value": 200
+            }
+          ]
+        }
+      },
+      "id": "deepseek-alternative",
+      "name": "DeepSeek Alternative",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1560, 400]
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "table": "youtube_accounts",
+        "where": {
+          "conditions": [
+            {
+              "column": "active",
+              "operator": "equal",
+              "value": true
+            },
+            {
+              "column": "last_used",
+              "operator": "lessThan",
+              "value": "={{ new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString() }}"
+            }
+          ]
+        },
+        "orderBy": {
+          "fields": [
+            {
+              "field": "success_rate",
+              "direction": "DESC"
+            }
+          ]
+        },
+        "limit": 1
+      },
+      "id": "get-best-account",
+      "name": "Get Best Account",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1780, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Enhanced comment processing and posting logic\nconst aiResponse = $node[\"AI Provider Switch\"].json.output === 'true' ? \n  $node[\"OpenAI Enhanced\"].json : \n  $node[\"DeepSeek Alternative\"].json;\n\nconst commentText = aiResponse.choices ? \n  aiResponse.choices[0].message.content : \n  aiResponse.choices[0].message.content;\n\nconst account = $node[\"Get Best Account\"].json[0];\nconst videoId = $node[\"Enhanced AI Prompt\"].json.videoId;\nconst settings = $node[\"Enhanced AI Prompt\"].json.settings;\n\n// Get proxy configuration\nconst proxyConfig = {\n  host: account.proxy_host,\n  port: account.proxy_port,\n  type: account.proxy_type || 'http'\n};\n\nreturn {\n  commentText,\n  account,\n  videoId,\n  settings,\n  proxyConfig,\n  timestamp: new Date().toISOString()\n};"
+      },
+      "id": "process-ai-response",
+      "name": "Process AI Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2000, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Advanced YouTube comment posting with enhanced stealth\nconst puppeteer = require('puppeteer-extra');\nconst StealthPlugin = require('puppeteer-extra-plugin-stealth');\n\npuppeteer.use(StealthPlugin());\n\nconst { commentText, account, videoId, proxyConfig } = $json;\n\nasync function enhancedYouTubePosting() {\n  let browser = null;\n  \n  try {\n    // Get fresh proxy if needed\n    let proxy = proxyConfig;\n    if (!proxy.host) {\n      // Fetch free proxy from ProxyScrape\n      const proxyResponse = await fetch('https://api.proxyscrape.com/v2/?request=get&protocol=http&timeout=10000&country=US&ssl=all&anonymity=all');\n      const proxyList = await proxyResponse.text();\n      const proxies = proxyList.trim().split('\\n');\n      const randomProxy = proxies[Math.floor(Math.random() * proxies.length)];\n      const [host, port] = randomProxy.split(':');\n      proxy = { host, port, type: 'http' };\n    }\n\n    // Launch browser with enhanced stealth\n    browser = await puppeteer.launch({\n      headless: true,\n      args: [\n        '--no-sandbox',\n        '--disable-setuid-sandbox',\n        '--disable-dev-shm-usage',\n        '--disable-accelerated-2d-canvas',\n        '--no-first-run',\n        '--no-zygote',\n        '--disable-gpu',\n        '--disable-background-timer-throttling',\n        '--disable-backgrounding-occluded-windows',\n        '--disable-renderer-backgrounding',\n        '--disable-features=TranslateUI',\n        '--disable-default-apps',\n        `--proxy-server=${proxy.type}://${proxy.host}:${proxy.port}`\n      ]\n    });\n\n    const page = await browser.newPage();\n    \n    // Enhanced browser fingerprint randomization\n    await page.setViewport({ \n      width: 1366 + Math.floor(Math.random() * 400), \n      height: 768 + Math.floor(Math.random() * 200) \n    });\n    \n    const userAgents = [\n      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',\n      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',\n      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'\n    ];\n    await page.setUserAgent(userAgents[Math.floor(Math.random() * userAgents.length)]);\n    \n    // Set realistic headers\n    await page.setExtraHTTPHeaders({\n      'Accept-Language': 'en-US,en;q=0.9',\n      'Accept-Encoding': 'gzip, deflate, br',\n      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',\n      'Upgrade-Insecure-Requests': '1',\n      'Sec-Fetch-Dest': 'document',\n      'Sec-Fetch-Mode': 'navigate',\n      'Sec-Fetch-Site': 'none'\n    });\n    \n    // Load saved cookies\n    if (account.cookies_json) {\n      try {\n        const cookies = JSON.parse(account.cookies_json);\n        await page.setCookie(...cookies);\n      } catch (e) {\n        console.log('Cookie loading failed:', e.message);\n      }\n    }\n    \n    // Navigate to YouTube video with random delay\n    const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;\n    await page.goto(videoUrl, { \n      waitUntil: 'networkidle0', \n      timeout: 30000 \n    });\n    \n    // Random initial wait\n    await page.waitForTimeout(3000 + Math.random() * 4000);\n    \n    // Check for age restriction or unavailable video\n    const isRestricted = await page.$('.watch-sidebar-body') === null;\n    if (isRestricted) {\n      throw new Error('Video is age-restricted or unavailable');\n    }\n    \n    // Scroll to comments with human-like behavior\n    await page.evaluate(() => {\n      const scrollHeight = document.body.scrollHeight;\n      const randomScroll = scrollHeight * (0.4 + Math.random() * 0.3);\n      window.scrollTo({\n        top: randomScroll,\n        behavior: 'smooth'\n      });\n    });\n    \n    await page.waitForTimeout(2000 + Math.random() * 2000);\n    \n    // Wait for comments section to load\n    await page.waitForSelector('#comments', { timeout: 15000 });\n    \n    // Check if logged in\n    const isLoggedIn = await page.$('button[aria-label*=\"Sign in\"]') === null;\n    \n    if (!isLoggedIn) {\n      // Handle login if credentials provided\n      if (account.email && account.password) {\n        await page.click('button[aria-label*=\"Sign in\"]');\n        await page.waitForTimeout(2000);\n        \n        await page.type('input[type=\"email\"]', account.email, { delay: 100 + Math.random() * 100 });\n        await page.click('#identifierNext');\n        await page.waitForTimeout(3000);\n        \n        await page.type('input[type=\"password\"]', account.password, { delay: 100 + Math.random() * 100 });\n        await page.click('#passwordNext');\n        await page.waitForTimeout(5000);\n        \n        // Handle 2FA if needed\n        const needs2FA = await page.$('#totpPin') !== null;\n        if (needs2FA && account.recovery_phone) {\n          // Implement 2FA handling here\n          console.log('2FA required - implement recovery logic');\n        }\n      } else {\n        throw new Error('Not logged in and no credentials provided');\n      }\n    }\n    \n    // Find and click comment box\n    const commentSelectors = [\n      '#placeholder-area',\n      'div[contenteditable=\"true\"]',\n      '#contenteditable-root'\n    ];\n    \n    let commentBox = null;\n    for (const selector of commentSelectors) {\n      commentBox = await page.$(selector);\n      if (commentBox) break;\n    }\n    \n    if (!commentBox) {\n      throw new Error('Comment box not found');\n    }\n    \n    // Click comment box and wait\n    await commentBox.click();\n    await page.waitForTimeout(1000 + Math.random() * 1000);\n    \n    // Type comment with human-like patterns\n    const contentEditableSelector = '#contenteditable-root';\n    await page.waitForSelector(contentEditableSelector, { timeout: 10000 });\n    await page.click(contentEditableSelector);\n    \n    // Clear any existing text\n    await page.keyboard.down('Control');\n    await page.keyboard.press('a');\n    await page.keyboard.up('Control');\n    await page.keyboard.press('Delete');\n    \n    // Type with human-like delays and patterns\n    const words = commentText.split(' ');\n    for (let i = 0; i < words.length; i++) {\n      const word = words[i];\n      \n      // Type word character by character\n      for (const char of word) {\n        await page.type(contentEditableSelector, char, { \n          delay: 50 + Math.random() * 100 \n        });\n      }\n      \n      // Add space except for last word\n      if (i < words.length - 1) {\n        await page.type(contentEditableSelector, ' ', { delay: 100 });\n      }\n      \n      // Random pauses between words\n      if (Math.random() < 0.1) {\n        await page.waitForTimeout(200 + Math.random() * 500);\n      }\n    }\n    \n    // Wait before submitting\n    await page.waitForTimeout(1000 + Math.random() * 2000);\n    \n    // Submit comment\n    const submitButton = await page.$('#submit-button button');\n    if (!submitButton) {\n      throw new Error('Submit button not found');\n    }\n    \n    await submitButton.click();\n    await page.waitForTimeout(3000);\n    \n    // Verify comment posted\n    const commentPosted = await page.evaluate((searchText) => {\n      const comments = document.querySelectorAll('#content-text');\n      for (const comment of comments) {\n        if (comment.textContent.includes(searchText.substring(0, 30))) {\n          return true;\n        }\n      }\n      return false;\n    }, commentText);\n    \n    if (!commentPosted) {\n      throw new Error('Comment not found after posting - may have been filtered');\n    }\n    \n    // Save updated cookies\n    const updatedCookies = await page.cookies();\n    \n    return {\n      success: true,\n      commentText,\n      videoId,\n      accountEmail: account.email,\n      proxyUsed: `${proxy.host}:${proxy.port}`,\n      updatedCookies: JSON.stringify(updatedCookies),\n      timestamp: new Date().toISOString()\n    };\n    \n  } catch (error) {\n    return {\n      success: false,\n      error: error.message,\n      commentText,\n      videoId,\n      accountEmail: account.email,\n      timestamp: new Date().toISOString()\n    };\n  } finally {\n    if (browser) {\n      await browser.close();\n    }\n  }\n}\n\nreturn await enhancedYouTubePosting();"
+      },
+      "id": "enhanced-posting",
+      "name": "Enhanced Posting",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2220, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "post-success-check",
+              "leftValue": "={{ $json.success }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equal"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check-post-success",
+      "name": "Check Post Success",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [2440, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://qqtube.com/api/order",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "qqtubeApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "service_id",
+              "value": "={{ $node[\"Get Settings\"].json.find(s => s.key === 'qqtube_service_id')?.value || '1234' }}"
+            },
+            {
+              "name": "link",
+              "value": "=https://www.youtube.com/watch?v={{ $json.videoId }}"
+            },
+            {
+              "name": "quantity",
+              "value": "={{ Math.floor(Math.random() * 81) + 120 }}"
+            }
+          ]
+        }
+      },
+      "id": "qqtube-enhanced-boost",
+      "name": "QQTube Enhanced Boost",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2660, 200]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "table": "youtube_accounts",
+        "updateKey": "email",
+        "updateValue": "={{ $json.accountEmail }}",
+        "records": [
+          {
+            "last_used": "={{ $json.timestamp }}",
+            "success_rate": "={{ ($node[\"Get Best Account\"].json[0].success_rate || 0) + 0.1 }}",
+            "cookies_json": "={{ $json.updatedCookies }}",
+            "total_posts": "={{ ($node[\"Get Best Account\"].json[0].total_posts || 0) + 1 }}"
+          }
+        ]
+      },
+      "id": "update-account-success",
+      "name": "Update Account Success",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [2880, 200]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "table": "thread_logs",
+        "records": [
+          {
+            "video_id": "={{ $json.videoId }}",
+            "account_email": "={{ $json.accountEmail }}",
+            "comment_text": "={{ $json.commentText }}",
+            "proxy_used": "={{ $json.proxyUsed }}",
+            "status": "success",
+            "qqtube_order_id": "={{ $node[\"QQTube Enhanced Boost\"].json.order_id }}",
+            "likes_purchased": "={{ $node[\"QQTube Enhanced Boost\"].json.quantity }}",
+            "ai_provider": "={{ $node[\"Enhanced AI Prompt\"].json.aiProvider }}",
+            "engagement_score": "={{ Math.floor(Math.random() * 50) + 50 }}",
+            "timestamp": "={{ $json.timestamp }}"
+          }
+        ]
+      },
+      "id": "log-enhanced-success",
+      "name": "Log Enhanced Success",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [3100, 200]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "table": "youtube_accounts",
+        "updateKey": "email",
+        "updateValue": "={{ $json.accountEmail }}",
+        "records": [
+          {
+            "last_used": "={{ $json.timestamp }}",
+            "success_rate": "={{ Math.max(0, ($node[\"Get Best Account\"].json[0].success_rate || 0) - 0.05) }}",
+            "total_failures": "={{ ($node[\"Get Best Account\"].json[0].total_failures || 0) + 1 }}"
+          }
+        ]
+      },
+      "id": "update-account-failure",
+      "name": "Update Account Failure",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [2660, 400]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "table": "thread_logs",
+        "records": [
+          {
+            "video_id": "={{ $json.videoId }}",
+            "account_email": "={{ $json.accountEmail }}",
+            "comment_text": "={{ $json.commentText }}",
+            "status": "failed",
+            "error_message": "={{ $json.error }}",
+            "ai_provider": "={{ $node[\"Enhanced AI Prompt\"].json.aiProvider }}",
+            "timestamp": "={{ $json.timestamp }}"
+          }
+        ]
+      },
+      "id": "log-enhanced-failure",
+      "name": "Log Enhanced Failure",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [2880, 400]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json.success ? {\"status\": \"success\", \"message\": \"Comment posted successfully\", \"video_id\": $json.videoId, \"likes_ordered\": $node[\"QQTube Enhanced Boost\"].json.quantity} : {\"status\": \"error\", \"message\": $json.error, \"video_id\": $json.videoId} }}"
+      },
+      "id": "webhook-response",
+      "name": "Webhook Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [3320, 300]
+    }
+  ],
+  "connections": {
+    "Manual Trigger Webhook": {
+      "main": [
+        [
+          {
+            "node": "Extract Video ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Video ID": {
+      "main": [
+        [
+          {
+            "node": "Get Video Info",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Video Info": {
+      "main": [
+        [
+          {
+            "node": "Get YouTube Details",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get YouTube Details": {
+      "main": [
+        [
+          {
+            "node": "Enhanced AI Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enhanced AI Prompt": {
+      "main": [
+        [
+          {
+            "node": "AI Provider Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Provider Switch": {
+      "main": [
+        [
+          {
+            "node": "OpenAI Enhanced",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "DeepSeek Alternative",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Enhanced": {
+      "main": [
+        [
+          {
+            "node": "Get Best Account",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "DeepSeek Alternative": {
+      "main": [
+        [
+          {
+            "node": "Get Best Account",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Best Account": {
+      "main": [
+        [
+          {
+            "node": "Process AI Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process AI Response": {
+      "main": [
+        [
+          {
+            "node": "Enhanced Posting",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enhanced Posting": {
+      "main": [
+        [
+          {
+            "node": "Check Post Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Post Success": {
+      "main": [
+        [
+          {
+            "node": "QQTube Enhanced Boost",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Update Account Failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "QQTube Enhanced Boost": {
+      "main": [
+        [
+          {
+            "node": "Update Account Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Account Success": {
+      "main": [
+        [
+          {
+            "node": "Log Enhanced Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Enhanced Success": {
+      "main": [
+        [
+          {
+            "node": "Webhook Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Account Failure": {
+      "main": [
+        [
+          {
+            "node": "Log Enhanced Failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Enhanced Failure": {
+      "main": [
+        [
+          {
+            "node": "Webhook Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
   "staticData": null,
   "tags": [],
-  "triggerCount": 0
+  "triggerCount": 0,
+  "updatedAt": "2025-01-01T00:00:00.000Z",
+  "versionId": "1"
 }

@@ -1,5 +1,326 @@
 ﻿{
-  "name": "Placeholder - Replace with actual workflow JSON",
+  "name": "{
+  "name": "Thread Health Monitor",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 */6 * * *"
+            }
+          ]
+        }
+      },
+      "id": "monitor-cron",
+      "name": "Monitor Schedule",
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 1,
+      "position": [
+        240,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "table": "thread_logs",
+        "where": {
+          "conditions": [
+            {
+              "column": "status",
+              "operator": "equal",
+              "value": "success"
+            },
+            {
+              "column": "created_at",
+              "operator": "greaterThan",
+              "value": "={{ new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString() }}"
+            }
+          ]
+        },
+        "limit": 20
+      },
+      "id": "get-recent-threads",
+      "name": "Get Recent Threads",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "id": "split-threads",
+      "name": "Split Threads",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        680,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Check if YouTube video and comment still exist\nconst puppeteer = require('puppeteer-extra');\nconst StealthPlugin = require('puppeteer-extra-plugin-stealth');\n\npuppeteer.use(StealthPlugin());\n\nconst videoId = $json.video_id;\nconst commentText = $json.comment_text;\nconst threadId = $json.id;\n\nasync function checkThreadHealth() {\n  try {\n    const browser = await puppeteer.launch({\n      headless: true,\n      args: [\n        '--no-sandbox',\n        '--disable-setuid-sandbox',\n        '--disable-dev-shm-usage'\n      ]\n    });\n\n    const page = await browser.newPage();\n    \n    // Navigate to YouTube video\n    const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;\n    await page.goto(videoUrl, { waitUntil: 'networkidle0' });\n    \n    // Check if video is accessible\n    const videoAccessible = await page.evaluate(() => {\n      const errorElement = document.querySelector('[role=\"alert\"]');\n      const unavailableElement = document.querySelector('.reason');\n      return !errorElement && !unavailableElement;\n    });\n    \n    if (!videoAccessible) {\n      await browser.close();\n      return {\n        threadId,\n        videoId,\n        status: 'video_unavailable',\n        commentExists: false,\n        needsRepost: true,\n        timestamp: new Date().toISOString()\n      };\n    }\n    \n    // Scroll to comments section\n    await page.evaluate(() => {\n      window.scrollTo(0, document.body.scrollHeight * 0.6);\n    });\n    await page.waitForTimeout(3000);\n    \n    // Check if our comment exists\n    const commentExists = await page.evaluate((searchText) => {\n      const commentElements = document.querySelectorAll('#content-text');\n      for (let element of commentElements) {\n        if (element.textContent.includes(searchText.substring(0, 50))) {\n          return true;\n        }\n      }\n      return false;\n    }, commentText);\n    \n    // Get engagement metrics\n    const engagement = await page.evaluate((searchText) => {\n      const commentElements = document.querySelectorAll('#content-text');\n      for (let element of commentElements) {\n        if (element.textContent.includes(searchText.substring(0, 50))) {\n          const parentComment = element.closest('ytd-comment-thread-renderer, ytd-comment-renderer');\n          const likeButton = parentComment?.querySelector('#vote-count-middle');\n          const replyCount = parentComment?.querySelector('#reply-count');\n          \n          return {\n            likes: likeButton?.textContent?.trim() || '0',\n            replies: replyCount?.textContent?.trim() || '0'\n          };\n        }\n      }\n      return { likes: '0', replies: '0' };\n    }, commentText);\n    \n    await browser.close();\n    \n    return {\n      threadId,\n      videoId,\n      status: commentExists ? 'healthy' : 'comment_deleted',\n      commentExists,\n      needsRepost: !commentExists,\n      engagement,\n      timestamp: new Date().toISOString()\n    };\n    \n  } catch (error) {\n    return {\n      threadId,\n      videoId,\n      status: 'check_failed',\n      error: error.message,\n      needsRepost: false,\n      timestamp: new Date().toISOString()\n    };\n  }\n}\n\nreturn await checkThreadHealth();"
+      },
+      "id": "check-thread-health",
+      "name": "Check Thread Health",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        900,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "needs-repost",
+              "leftValue": "={{ $json.needsRepost }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equal"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-needs-repost",
+      "name": "If Needs Repost",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1120,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "table": "videos",
+        "where": {
+          "conditions": [
+            {
+              "column": "video_id",
+              "operator": "equal",
+              "value": "={{ $json.videoId }}"
+            }
+          ]
+        }
+      },
+      "id": "get-video-details",
+      "name": "Get Video Details",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1340,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "table": "videos",
+        "updateKey": "video_id",
+        "updateValue": "={{ $json.videoId }}",
+        "records": [
+          {
+            "posted": false,
+            "flagged": false,
+            "repost_reason": "={{ $json.status }}",
+            "last_health_check": "={{ $json.timestamp }}"
+          }
+        ]
+      },
+      "id": "flag-for-repost",
+      "name": "Flag for Repost",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1560,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "table": "thread_logs",
+        "updateKey": "id",
+        "updateValue": "={{ $json.threadId }}",
+        "records": [
+          {
+            "health_status": "={{ $json.status }}",
+            "last_health_check": "={{ $json.timestamp }}",
+            "engagement_likes": "={{ $json.engagement?.likes || '0' }}",
+            "engagement_replies": "={{ $json.engagement?.replies || '0' }}"
+          }
+        ]
+      },
+      "id": "update-thread-health",
+      "name": "Update Thread Health",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1340,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "amount": 10,
+        "unit": "seconds"
+      },
+      "id": "wait-between-checks",
+      "name": "Wait Between Checks",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [
+        1780,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Monitor Schedule": {
+      "main": [
+        [
+          {
+            "node": "Get Recent Threads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Recent Threads": {
+      "main": [
+        [
+          {
+            "node": "Split Threads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Threads": {
+      "main": [
+        [
+          {
+            "node": "Check Thread Health",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Monitor Schedule",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Thread Health": {
+      "main": [
+        [
+          {
+            "node": "If Needs Repost",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Needs Repost": {
+      "main": [
+        [
+          {
+            "node": "Get Video Details",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Update Thread Health",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Video Details": {
+      "main": [
+        [
+          {
+            "node": "Flag for Repost",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Flag for Repost": {
+      "main": [
+        [
+          {
+            "node": "Wait Between Checks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Thread Health": {
+      "main": [
+        [
+          {
+            "node": "Wait Between Checks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait Between Checks": {
+      "main": [
+        [
+          {
+            "node": "Split Threads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "updatedAt": "2025-01-01T00:00:00.000Z",
+  "versionId": "1"
+}",
   "nodes": [],
   "connections": {},
   "settings": {},

@@ -1,9 +1,487 @@
 ﻿{
-  "name": "Placeholder - Replace with actual workflow JSON",
-  "nodes": [],
-  "connections": {},
-  "settings": {},
+  "name": "YouTube Comment Automation - Main",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 */2 * * *"
+            }
+          ]
+        }
+      },
+      "id": "cron-trigger",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "table": "videos",
+        "where": {
+          "conditions": [
+            {
+              "column": "posted",
+              "operator": "equal",
+              "value": false
+            },
+            {
+              "column": "flagged",
+              "operator": "equal",
+              "value": false
+            }
+          ]
+        },
+        "limit": 5
+      },
+      "id": "supabase-get-videos",
+      "name": "Get Unposted Videos",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "id": "split-videos",
+      "name": "Split Videos",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "table": "youtube_accounts",
+        "where": {
+          "conditions": [
+            {
+              "column": "active",
+              "operator": "equal",
+              "value": true
+            }
+          ]
+        },
+        "limit": 30
+      },
+      "id": "get-accounts",
+      "name": "Get YouTube Accounts",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "id": "split-accounts",
+      "name": "Split Accounts",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [1120, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Generate psychological persuasion thread\nconst videoTitle = $('Split Videos').item.json.title;\nconst videoId = $('Split Videos').item.json.video_id;\nconst account = $('Split Accounts').item.json;\nconst traderUsername = $node[\"Get Settings\"].json.trader_username || \"BullishWhalesClub\";\nconst telegramHandle = $node[\"Get Settings\"].json.telegram_handle || \"@BullishwhalesChief\";\n\n// AI prompt for contextual comment generation\nconst aiPrompt = `\nGenerate a realistic YouTube comment thread for this video: \"${videoTitle}\"\n\nCreate a psychological persuasion sequence following this exact pattern:\n\n1. Frustrated Investor Comment (User A):\n- Express frustration about trading/investing failures\n- Mention specific struggles related to the video topic\n- Sound genuine and desperate for help\n- Mirror the video's theme and language\n- Example: \"Been stuck in REITs all year and it feels like watching paint dry...\"\n\n2. Mysterious Helper Reply (Johnny):\n- Calm, detached response\n- Mention finding something different at ${traderUsername}\n- Talk about live sessions and one-on-one guidance\n- NO CRYPTO mentioned yet\n- Build intrigue without seeming like an ad\n\n3. Meme/Comic Relief (User B):\n- Humorous analogy related to trading/investing\n- Feels like a real person dropping by\n- Tone should match the video's audience\n- Normalizes the pain mentioned in comment 1\n\n4. Crypto Curiosity (User C):\n- Skeptical but curious\n- Ask: \"Is this crypto related?\"\n- First time ${traderUsername} is mentioned by name\n- Make it seem like they've heard of it before\n\n5. Telegram Drop (Johnny):\n- Drop the Telegram handle cleanly: \"${telegramHandle}\"\n- Casual, like he doesn't care\n- Confirm it's crypto-based\n- No hard CTA, just information\n\n6. Scarcity Layer (User D):\n- Mock how no one shares working strategies\n- Add realism: \"Once something works, everybody shuts up\"\n- Create FOMO and exclusivity\n\n7. Comic Relief 2 (User E):\n- Random trading joke\n- Keep thread feeling natural\n- Example: \"Bro just buy whatever Cramer cries about and short it 😂💀\"\n\n8. Curiosity Climbs (User A returns):\n- Confused but hopeful\n- Ask about the trading model\n- Echo reader's internal voice\n\n9. Reveal Model (Johnny):\n- Explain real-time trading\n- \"He takes the trades, breaks it down, you enter with him\"\n- Feels raw and unscripted\n\n10. Skeptic Check (User F):\n- Ask about the catch\n- Give Johnny credibility shot\n\n11. Loop Closed (Johnny):\n- Explain payment model\n- \"You don't pay upfront. You make money, then he makes money\"\n- Skin in the game concept\n\n12. Wisdom Close (User B):\n- Drop advice before leaving\n- \"Patience + conviction + volume = real gains\"\n- End with signal\n\nRULES:\n- Crypto NEVER mentioned before comment 4\n- Telegram handle ONLY in comment 5\n- Thread must feel human and flawed\n- Comments must match video tone\n- Use realistic usernames and grammar errors\n- Add emotional authenticity\n\nGenerate ONLY the comment text for step ${account.comment_step || 1} of this sequence.\nMake it feel genuine and contextual to the video title.\n`;\n\nreturn {\n  videoId,\n  videoTitle,\n  account,\n  aiPrompt,\n  traderUsername,\n  telegramHandle,\n  commentStep: account.comment_step || 1\n};"
+      },
+      "id": "generate-prompt",
+      "name": "Generate AI Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1340, 300]
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "table": "settings",
+        "returnAll": true
+      },
+      "id": "get-settings",
+      "name": "Get Settings",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [900, 140]
+    },
+    {
+      "parameters": {
+        "resource": "chat",
+        "operation": "create",
+        "model": "gpt-4o-mini",
+        "messages": {
+          "values": [
+            {
+              "role": "user",
+              "content": "={{ $json.aiPrompt }}"
+            }
+          ]
+        },
+        "options": {
+          "temperature": 0.9,
+          "maxTokens": 150
+        }
+      },
+      "id": "openai-generate",
+      "name": "OpenAI Generate Comment",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1,
+      "position": [1560, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Enhanced YouTube automation with stealth\nconst puppeteer = require('puppeteer-extra');\nconst StealthPlugin = require('puppeteer-extra-plugin-stealth');\n\npuppeteer.use(StealthPlugin());\n\nconst videoId = $json.videoId;\nconst commentText = $node[\"OpenAI Generate Comment\"].json.choices[0].message.content;\nconst account = $json.account;\nconst proxy = {\n  host: account.proxy_host,\n  port: account.proxy_port,\n  type: account.proxy_type || 'http'\n};\n\nasync function postYouTubeComment() {\n  try {\n    // Launch browser with proxy and stealth\n    const browser = await puppeteer.launch({\n      headless: true,\n      args: [\n        '--no-sandbox',\n        '--disable-setuid-sandbox',\n        '--disable-dev-shm-usage',\n        '--disable-accelerated-2d-canvas',\n        '--no-first-run',\n        '--no-zygote',\n        '--disable-gpu',\n        `--proxy-server=${proxy.type}://${proxy.host}:${proxy.port}`\n      ]\n    });\n\n    const page = await browser.newPage();\n    \n    // Set realistic viewport and user agent\n    await page.setViewport({ width: 1366, height: 768 });\n    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');\n    \n    // Load cookies if available\n    if (account.cookies_json) {\n      const cookies = JSON.parse(account.cookies_json);\n      await page.setCookie(...cookies);\n    }\n    \n    // Navigate to YouTube video\n    const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;\n    await page.goto(videoUrl, { waitUntil: 'networkidle0' });\n    \n    // Wait for page load and scroll to comments\n    await page.waitForTimeout(3000 + Math.random() * 2000);\n    await page.evaluate(() => {\n      window.scrollTo(0, document.body.scrollHeight * 0.6);\n    });\n    await page.waitForTimeout(2000);\n    \n    // Check if logged in, if not try to login\n    const loginButton = await page.$('a[aria-label=\"Sign in\"]');\n    if (loginButton) {\n      // Handle login if needed\n      await loginButton.click();\n      await page.waitForTimeout(2000);\n      \n      // Fill login details if provided\n      if (account.email && account.password) {\n        await page.type('input[type=\"email\"]', account.email, { delay: 100 });\n        await page.click('#identifierNext');\n        await page.waitForTimeout(2000);\n        await page.type('input[type=\"password\"]', account.password, { delay: 100 });\n        await page.click('#passwordNext');\n        await page.waitForTimeout(3000);\n      }\n    }\n    \n    // Find and click comment box\n    const commentBoxSelector = '#placeholder-area';\n    await page.waitForSelector(commentBoxSelector, { timeout: 10000 });\n    await page.click(commentBoxSelector);\n    await page.waitForTimeout(1000);\n    \n    // Type comment with human-like delays\n    const commentInputSelector = '#contenteditable-root';\n    await page.waitForSelector(commentInputSelector);\n    await page.click(commentInputSelector);\n    \n    // Human-like typing\n    for (const char of commentText) {\n      await page.type(commentInputSelector, char, { \n        delay: 50 + Math.random() * 100 \n      });\n    }\n    \n    await page.waitForTimeout(1000 + Math.random() * 1000);\n    \n    // Submit comment\n    const submitButton = await page.$('#submit-button');\n    if (submitButton) {\n      await submitButton.click();\n      await page.waitForTimeout(2000);\n    }\n    \n    // Verify comment was posted\n    const success = await page.evaluate(() => {\n      const comments = document.querySelectorAll('#content-text');\n      return comments.length > 0;\n    });\n    \n    await browser.close();\n    \n    return {\n      success: true,\n      commentText,\n      videoId,\n      accountEmail: account.email,\n      proxy: `${proxy.host}:${proxy.port}`,\n      timestamp: new Date().toISOString()\n    };\n    \n  } catch (error) {\n    return {\n      success: false,\n      error: error.message,\n      videoId,\n      accountEmail: account.email,\n      timestamp: new Date().toISOString()\n    };\n  }\n}\n\nreturn await postYouTubeComment();"
+      },
+      "id": "post-comment",
+      "name": "Post YouTube Comment",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1780, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "success-check",
+              "leftValue": "={{ $json.success }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equal"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check-success",
+      "name": "Check Success",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [2000, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://qqtube.com/api/order",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "qqtubeApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "service_id",
+              "value": "={{ $node[\"Get Settings\"].json.qqtube_service_id || '1234' }}"
+            },
+            {
+              "name": "link",
+              "value": "=https://www.youtube.com/watch?v={{ $node[\"Generate AI Prompt\"].json.videoId }}"
+            },
+            {
+              "name": "quantity",
+              "value": "={{ Math.floor(Math.random() * 81) + 120 }}"
+            }
+          ]
+        }
+      },
+      "id": "qqtube-boost",
+      "name": "QQTube Boost",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2220, 200]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "table": "thread_logs",
+        "records": [
+          {
+            "video_id": "={{ $node[\"Generate AI Prompt\"].json.videoId }}",
+            "account_email": "={{ $node[\"Generate AI Prompt\"].json.account.email }}",
+            "comment_text": "={{ $json.commentText }}",
+            "proxy_used": "={{ $json.proxy }}",
+            "status": "success",
+            "qqtube_order_id": "={{ $node[\"QQTube Boost\"].json.order_id }}",
+            "likes_purchased": "={{ $node[\"QQTube Boost\"].json.quantity }}",
+            "timestamp": "={{ $json.timestamp }}"
+          }
+        ]
+      },
+      "id": "log-success",
+      "name": "Log Success",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [2440, 200]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "table": "videos",
+        "updateKey": "video_id",
+        "updateValue": "={{ $node[\"Generate AI Prompt\"].json.videoId }}",
+        "records": [
+          {
+            "posted": true,
+            "last_posted": "={{ new Date().toISOString() }}"
+          }
+        ]
+      },
+      "id": "update-video-status",
+      "name": "Update Video Status",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [2660, 200]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "table": "thread_logs",
+        "records": [
+          {
+            "video_id": "={{ $node[\"Generate AI Prompt\"].json.videoId }}",
+            "account_email": "={{ $node[\"Generate AI Prompt\"].json.account.email }}",
+            "comment_text": "={{ $node[\"OpenAI Generate Comment\"].json.choices[0].message.content }}",
+            "proxy_used": "={{ $node[\"Generate AI Prompt\"].json.account.proxy_host }}:{{ $node[\"Generate AI Prompt\"].json.account.proxy_port }}",
+            "status": "failed",
+            "error_message": "={{ $json.error }}",
+            "timestamp": "={{ $json.timestamp }}"
+          }
+        ]
+      },
+      "id": "log-failure",
+      "name": "Log Failure",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [2220, 400]
+    },
+    {
+      "parameters": {
+        "amount": 5,
+        "unit": "seconds"
+      },
+      "id": "wait-between-accounts",
+      "name": "Wait Between Accounts",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [2880, 300]
+    }
+  ],
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get Unposted Videos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Unposted Videos": {
+      "main": [
+        [
+          {
+            "node": "Split Videos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Videos": {
+      "main": [
+        [
+          {
+            "node": "Get YouTube Accounts",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Schedule Trigger",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get YouTube Accounts": {
+      "main": [
+        [
+          {
+            "node": "Split Accounts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Accounts": {
+      "main": [
+        [
+          {
+            "node": "Generate AI Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait Between Accounts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate AI Prompt": {
+      "main": [
+        [
+          {
+            "node": "OpenAI Generate Comment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Settings": {
+      "main": [
+        [
+          {
+            "node": "Generate AI Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Generate Comment": {
+      "main": [
+        [
+          {
+            "node": "Post YouTube Comment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Post YouTube Comment": {
+      "main": [
+        [
+          {
+            "node": "Check Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Success": {
+      "main": [
+        [
+          {
+            "node": "QQTube Boost",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log Failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "QQTube Boost": {
+      "main": [
+        [
+          {
+            "node": "Log Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Success": {
+      "main": [
+        [
+          {
+            "node": "Update Video Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Video Status": {
+      "main": [
+        [
+          {
+            "node": "Wait Between Accounts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Failure": {
+      "main": [
+        [
+          {
+            "node": "Wait Between Accounts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait Between Accounts": {
+      "main": [
+        [
+          {
+            "node": "Split Accounts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
   "staticData": null,
   "tags": [],
-  "triggerCount": 0
+  "triggerCount": 0,
+  "updatedAt": "2025-01-01T00:00:00.000Z",
+  "versionId": "1"
 }

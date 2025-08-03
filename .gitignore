@@ -1,0 +1,34 @@
+﻿# Environment files
+.env
+.env.local
+.env.production
+
+# Node modules
+node_modules/
+npm-debug.log*
+
+# N8N data
+.n8n/
+database.sqlite
+
+# Logs
+logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Backup files
+*_backup_*
+
+# Sensitive data
+cookies/
+accounts.csv
+proxy-list.txt

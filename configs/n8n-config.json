@@ -1,0 +1,29 @@
+﻿{
+  "database": {
+    "type": "sqlite",
+    "database": "/root/.n8n/database.sqlite"
+  },
+  "endpoints": {
+    "webhook": "webhook",
+    "webhookWaiting": "webhook-waiting",
+    "webhookTest": "webhook-test"
+  },
+  "executions": {
+    "saveDataOnError": "all",
+    "saveDataOnSuccess": "all",
+    "saveDataManualExecutions": true
+  },
+  "security": {
+    "basicAuth": {
+      "active": true,
+      "user": "admin",
+      "password": "change_this_password"
+    }
+  },
+  "workflows": {
+    "defaultName": "My workflow"
+  },
+  "nodes": {
+    "exclude": []
+  }
+}

@@ -1,0 +1,24 @@
+﻿{
+  "name": "youtube-automation-system",
+  "version": "1.0.0",
+  "description": "Comprehensive YouTube comment automation system",
+  "main": "index.js",
+  "scripts": {
+    "start": "n8n start",
+    "dev": "n8n start --tunnel",
+    "build": "echo Build complete",
+    "test": "echo No tests specified"
+  },
+  "dependencies": {
+    "n8n": "^1.19.0",
+    "puppeteer-extra": "^3.3.6",
+    "puppeteer-extra-plugin-stealth": "^2.11.2",
+    "papaparse": "^5.4.1",
+    "axios": "^1.6.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "author": "YouTube Automation Team",
+  "license": "MIT"
+}
